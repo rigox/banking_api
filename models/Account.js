@@ -11,10 +11,18 @@ const AccountSchema  = new Schema({
          required:true
     } ,
     email:String,
-    cheackings:Number,
+    checkings:Number,
     transactions:[],
     card:String,
-    DateJoined : new Date.toUTCString()
+    draft:{
+         required:true,
+         type:Boolean
+    },
+    DateJoined : {
+         required:true,
+         type:String,
+         default:new Date().toUTCString()
+    }
 
 })
 

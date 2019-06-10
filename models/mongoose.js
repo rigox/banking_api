@@ -1,6 +1,6 @@
-const moongose  = require("moongose");
+const moongose  = require("mongoose");
 const keys  = require("../config/keys");
-mongoose.Promise =  global.Promise
+moongose.Promise =  global.Promise
 
 
 moongose.connect(keys.mongo_url,(err)=>{
