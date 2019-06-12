@@ -53,7 +53,10 @@ router.get('/login',(req,res)=>{
    const password    = req.query.password ||  req.body.password
   Account.find({'username':username})
   .then(user=>{
-      bcrypt.compare(password,user[0].password,(err,isMatch)=>{
+   if(user.length===0){
+       res.send(404,{"message":"Userame is invalid"})
+   }     
+    bcrypt.compare(password,user[0].password,(err,isMatch)=>{
            if(isMatch){
                jwt.sign({user:user},keys.secret,{expiresIn:'5h'},(err,token)=>{
                    res.send(token)
@@ -64,28 +67,46 @@ router.get('/login',(req,res)=>{
            }
       })
   })
-  .catch((err)=>{throw err})
+  .catch((err)=>{res.send(404,{'message':err})})
 });
 
 
 router.put('/add_funds',verifyToken,(req,res)=>{
+
       const  username  = req.body.username || req.query.username
       const  funds   = Number( req.body.funds || req.query.funds)
     Account.updateOne({"username":username},{$inc:{"checkings":funds}}).then(a=>{
           res.status(200).send({"message":"funds added "})
-    }).catch(err=>{res.send(err)})
+    }).catch(err=>{res.send(404,{'message':err})})
 
 })
 
 
+router.get('/withdraw',verifyToken,(req,res)=>{
+    const  username =  req.query.username || req.body.username
+    const  amount   = Number(req.query.amount || req.body.amount)
+    Account.find({'username':username})
+    .then(user=>{
+          if(user.length==0){res.send(404,{"message":"User was not found"})}
+          else if(user[0].checkings>=amount){
+                const withDrawAmount =  amount                
+                Account.updateOne({'username':username},{$inc:{'checkings':-withDrawAmount}})
+                .then(a=>{res.send({"money":withDrawAmount})})
+                .catch(err=>res.send(404,{"message":err}))
+            }
+          res.send({"Message":"There are not enough funds on your account"})
+    })
+    .catch(err=>{res.send(400,{"message":err})})
+});
+
 // use  to verify   the users token
 function verifyToken(req,res,next){
 
-    const header =  req.headers["Authorization"]
-
+    const header =  req.headers["authorization"]
+    
     if(typeof(header)!=="undefined"){
             const bearer =  header.split(' ')
-            const bearerToken =  bearer[0]
+            const bearerToken =  bearer[1]
             
             req.token =  bearerToken
 
@@ -102,6 +123,8 @@ function verifyToken(req,res,next){
 
 
 }
+
+
 
 
 
