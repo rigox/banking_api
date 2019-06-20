@@ -54,7 +54,7 @@ router.get('/login',(req,res)=>{
   Account.find({'username':username})
   .then(user=>{
    if(user.length===0){
-       res.send(404,{"message":"Userame is invalid"})
+       return res.send(404,{"message":"Userame is invalid"})
    }     
     bcrypt.compare(password,user[0].password,(err,isMatch)=>{
            if(isMatch){
@@ -63,7 +63,7 @@ router.get('/login',(req,res)=>{
                })
            }
            if(err){
-                res.send(404,{"message":"Password is  incorrect"})
+               return res.send(404,{"message":"Password is  incorrect"})
            }
       })
   })
@@ -99,9 +99,44 @@ router.get('/withdraw',verifyToken,(req,res)=>{
     .catch(err=>{res.send(400,{"message":err})})
 });
 
+
+router.get('/get_account',verifyToken,(req,res)=>{
+        const username = req.query.username || req.body.username
+        Account.find({"username":username})
+        .then(user=>{
+             if(user[0].length==0){
+                  res.send({"message":"User was not found"})
+             }
+             else{
+                  res.send(JSON.stringify(user))
+             }
+        }).catch(err=>res.send(err))
+});
+
+//make_transaction is used whe you use your account to login and commit a purchase
+
+router.post("/purchase",[verifyToken,verifyUser],(req,res)=>{
+   // transaction_info must be a json object update documentation
+    const  transaction_info  =  req.query.info || req.body.info
+    const username =  req.query.username || req.body.username
+    const amount   =  Number(req.body.amount || req.query.amount) 
+    console.log('purchase',username)
+   if(req.continue){
+        Account.update({"username":username},{
+             $inc:{"checkings":-amount},
+             $push:{"transactions":transaction_info}
+        },{multi:true})
+        .then(a=> console.log("cool"))
+        .catch(err=>{res.status(500).json({msg:"server error"})})
+   }
+});
+
+
+
+
 // use  to verify   the users token
 function verifyToken(req,res,next){
-
+    console.log("here",req.headers)
     const header =  req.headers["authorization"]
     
     if(typeof(header)!=="undefined"){
@@ -111,16 +146,35 @@ function verifyToken(req,res,next){
             req.token =  bearerToken
 
             jwt.verify(req.token,keys.secret,function(err,data){
-                        if(err){res.send(403)}
+                        if(err){ return res.status(403).json({msg:"not found"})}
                         else{
                             next();
                         }
             });
             
     }else{
-        res.send(404,{"message":"Error"})
+        return  res.status(404).json({msg:"error"});
     }
 
+
+}
+
+function verifyUser(req,res,next){
+    const   username =  req.query.username || req.body.username
+    const   amount   =  Number(req.body.amount || req.query.amount)
+    Account.find({"username":username})
+    .then(user=>{
+         if(user[0].length==0){
+             return res.send({"message":"User was not found"})
+         }
+         else{
+             if(user[0].checkings >= amount){
+                  req.continue  = true
+                  next()
+             }
+         }
+    })
+    .catch(err=>res.send({"message":err}))
 
 }
 
